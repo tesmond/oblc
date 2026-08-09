@@ -1,0 +1,3 @@
+# Go and DuckDB
+
+go also supports duckDB and as you can see it's very similar in terms of the amount of code and the complexity. It's clearly as easy to extend with additional columns changes to the data the values expanding et cetera and when we run this go version it takes 6.5 seconds noticeably faster than the Python version it appears the C bindings in go are significantly faster than Python can manage when bringing the data in and out of Python.
