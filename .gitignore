@@ -1,6 +1,8 @@
 /data
 node_modules/
 .DS_Store
+heatmap*
+.venv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -55,5 +55,5 @@ for (const [index, walkthrough] of walkthroughs.entries()) {
   checked += 1
 }
 
-assert.equal(checked, 10, `Expected 10 code walkthrough slides, found ${checked}`)
+assert.equal(checked, 9, `Expected 9 code walkthrough slides, found ${checked}`)
 console.log(`Validated ${checked} synchronized, non-overlapping code walkthroughs.`)

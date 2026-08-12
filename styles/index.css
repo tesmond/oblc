@@ -63,6 +63,12 @@
   line-height: 1.35 !important;
 }
 
+.go-walkthrough .slidev-code {
+  font-size: 0.55rem !important;
+  line-height: 1.18 !important;
+  transition: none !important;
+}
+
 .slidev-code .slidev-code-dishonored {
   opacity: 0.46 !important;
 }
@@ -85,3 +91,37 @@
 
 .slidev-layout table { font-size: 0.7em; }
 .slidev-layout th { color: var(--slidev-theme-primary); }
+
+.profile-copy {
+  border-left: 4px solid var(--slidev-theme-primary);
+  padding: 0.8rem 0 0.8rem 1.35rem;
+}
+
+.profile-copy h3 {
+  font-size: 1.4rem;
+  line-height: 1.15;
+  margin: 0 0 0.9rem;
+}
+
+.profile-copy p {
+  color: #dbe5f5;
+  font-size: 0.9rem;
+  line-height: 1.48;
+  margin: 0;
+}
+
+.profile-kicker {
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+.profile-click-anchor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

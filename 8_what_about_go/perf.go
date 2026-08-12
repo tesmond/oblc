@@ -45,7 +45,7 @@ type chunk struct {
 	end   int64
 }
 
-const tableSize = 1 << 12 // 4096 slots; ~10% load for 413 unique stations
+const tableSize = 1 << 12 // 4096 slots
 
 type slot struct {
 	klen  uint8
@@ -57,7 +57,7 @@ type hashTable struct {
 	slots [tableSize]slot
 }
 
-// upsert inserts or updates the station's running stats using FNV-1a + linear probing.
+// upsert inserts or updates the station's running stats using FNV-1a
 func (t *hashTable) upsert(key []byte, temp int) {
 	h := uint32(2166136261)
 	for _, b := range key {

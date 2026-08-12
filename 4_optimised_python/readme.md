@@ -8,4 +8,4 @@ Each batch is similarly processed line by line building up a dict of cities. In 
 
 Once each of the batches is processed in parallel, then they are brought back together and reduced into a single dictionary with the correct values calculated and then printed to the Console.
 
-At the end of this process, we have a 33 second processing time. Of course 33 seconds is well away from our ideal 0.3 seconds processing time so is there anyway we can improve this?
+At the end of this process, we have a 28.9 seconds processing time. Of course 28.9 seconds is well away from our ideal 0.3 seconds processing time so is there anyway we can improve this?

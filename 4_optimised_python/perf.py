@@ -6,6 +6,40 @@ CPU_COUNT: int = os.cpu_count() or 1
 MMAP_PAGE_SIZE: int = os.sysconf("SC_PAGE_SIZE")
 
 
+def read_file_in_chunks():
+    file_path = "../data/measurements.txt"
+    file_size_bytes = os.path.getsize(file_path)
+    base_chunk_size = file_size_bytes // CPU_COUNT
+    chunks = []
+
+    with open(file_path, "r+b") as file:
+        with mmap.mmap(
+            file.fileno(), length=0, access=mmap.ACCESS_READ
+        ) as mmapped_file:
+            start_byte = 0
+            for _ in range(CPU_COUNT):
+                end_byte = min(start_byte + base_chunk_size, file_size_bytes)
+                end_byte = mmapped_file.find(b"\n", end_byte)
+                end_byte = end_byte + 1 if end_byte != -1 else file_size_bytes
+                chunks.append((file_path, start_byte, end_byte))
+                start_byte = end_byte
+
+    with multiprocessing.Pool(processes=CPU_COUNT) as p:
+        results = p.starmap(process_chunk, chunks)
+
+    final = merge_results(results)
+
+    print(
+        "{",
+        ", ".join(
+            f"{loc.decode()}={0.1*val[2]:.1f}/{(0.1*val[1] / val[0]):.1f}/{0.1*val[3]:.1f}"
+            for loc, val in sorted(final.items())
+        ),
+        "}",
+        sep="",
+    )
+
+
 def process_chunk(file_path, start_byte, end_byte):
     offset = align_offset(start_byte, MMAP_PAGE_SIZE)
     result = {}
@@ -79,38 +113,5 @@ def merge_results(results):
     return final
 
 
-def read_file_in_chunks(file_path):
-    file_size_bytes = os.path.getsize(file_path)
-    base_chunk_size = file_size_bytes // CPU_COUNT
-    chunks = []
-
-    with open(file_path, "r+b") as file:
-        with mmap.mmap(
-            file.fileno(), length=0, access=mmap.ACCESS_READ
-        ) as mmapped_file:
-            start_byte = 0
-            for _ in range(CPU_COUNT):
-                end_byte = min(start_byte + base_chunk_size, file_size_bytes)
-                end_byte = mmapped_file.find(b"\n", end_byte)
-                end_byte = end_byte + 1 if end_byte != -1 else file_size_bytes
-                chunks.append((file_path, start_byte, end_byte))
-                start_byte = end_byte
-
-    with multiprocessing.Pool(processes=CPU_COUNT) as p:
-        results = p.starmap(process_chunk, chunks)
-
-    final = merge_results(results)
-
-    print(
-        "{",
-        ", ".join(
-            f"{loc.decode()}={0.1*val[2]:.1f}/{(0.1*val[1] / val[0]):.1f}/{0.1*val[3]:.1f}"
-            for loc, val in sorted(final.items())
-        ),
-        "}",
-        sep="",
-    )
-
-
 if __name__ == "__main__":
-    read_file_in_chunks("../data/measurements.txt")
+    read_file_in_chunks()
