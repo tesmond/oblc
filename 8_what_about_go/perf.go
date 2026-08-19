@@ -15,7 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// writeDecimal writes v/10 as a fixed one-decimal-place value into b.
 func writeDecimal(b *strings.Builder, v int) {
 	if v < 0 {
 		b.WriteByte('-')
@@ -57,7 +56,7 @@ type hashTable struct {
 	slots [tableSize]slot
 }
 
-// upsert inserts or updates the station's running stats using FNV-1a
+// upsert running stats using FNV-1a
 func (t *hashTable) upsert(key []byte, temp int) {
 	h := uint32(2166136261)
 	for _, b := range key {
@@ -172,7 +171,13 @@ func readFileInChunks(filePath string) error {
 	}
 	defer f.Close()
 
-	allData, err := syscall.Mmap(int(f.Fd()), 0, int(fileSize), syscall.PROT_READ, syscall.MAP_SHARED)
+	allData, err := syscall.Mmap(
+		int(f.Fd()),
+		0,
+		int(fileSize),
+		syscall.PROT_READ,
+		syscall.MAP_SHARED,
+	)
 	if err != nil {
 		return fmt.Errorf("mmap full file: %w", err)
 	}
@@ -204,7 +209,9 @@ func readFileInChunks(filePath string) error {
 	for i := range chunks {
 		go func(i int) {
 			defer wg.Done()
-			results[i] = processChunk(allData[chunks[i].start:chunks[i].end])
+			results[i] = processChunk(
+				allData[chunks[i].start:chunks[i].end],
+			)
 		}(i)
 	}
 
@@ -229,7 +236,7 @@ func readFileInChunks(filePath string) error {
 		b.WriteByte('=')
 		writeDecimal(&b, val.min)
 		b.WriteByte('/')
-		// average requires rounding: add half-divisor before truncating (negate for negative sums)
+
 		half := val.count / 2
 		if val.sum < 0 {
 			half = -half
@@ -246,7 +253,11 @@ func readFileInChunks(filePath string) error {
 }
 
 func main() {
-	filePath := flag.String("file", "../data/measurements.txt", "Path to measurements file")
+	filePath := flag.String(
+		"file",
+		"../data/measurements.txt",
+		"Path to measurements file",
+	)
 	flag.Parse()
 
 	if err := readFileInChunks(*filePath); err != nil {

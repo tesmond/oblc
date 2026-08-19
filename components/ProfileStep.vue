@@ -15,9 +15,6 @@ const optimized = computed(() => $clicks.value > 0)
         :alt="optimized ? 'Sampling heatmap for the optimized Python worker' : 'Sampling heatmap for naive Python'"
       />
     </Transition>
-    <div class="profile-step__hint">
-      {{ optimized ? 'Optimized worker profile' : 'Click to compare the optimized worker →' }}
-    </div>
   </div>
 </template>
 

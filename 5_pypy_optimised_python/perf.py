@@ -32,7 +32,9 @@ def read_file_in_chunks():
     print(
         "{",
         ", ".join(
-            f"{loc.decode()}={0.1*val[2]:.1f}/{(0.1*val[1] / val[0]):.1f}/{0.1*val[3]:.1f}"
+            f"{loc.decode()}={0.1*val[2]:.1f}"
+            f"/{(0.1*val[1] / val[0]):.1f}"
+            f"/{0.1*val[3]:.1f}"
             for loc, val in sorted(final.items())
         ),
         "}",

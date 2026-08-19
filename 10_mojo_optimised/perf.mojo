@@ -139,7 +139,7 @@ def process_chunk(
         var station_start = pos
         var station_hash = FNV_OFFSET
 
-        while data[unsafe_offset=pos] != 59:
+        while pos < end and data[unsafe_offset=pos] != 59:
             station_hash ^= UInt64(
                 data[unsafe_offset=pos]
             )
@@ -147,6 +147,9 @@ def process_chunk(
             station_hash *= FNV_PRIME
 
             pos += 1
+
+        if pos >= end:
+            return
 
         var station_length = (
             pos - station_start

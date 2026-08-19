@@ -13,38 +13,32 @@ transition: slide-left
 mdc: true
 ---
 
-<div class="eyebrow">A code-led performance presentation</div>
+<div class="eyebrow">Python Performance Presentation</div>
 
-# One Billion Rows,<br><span class="accent">ASAP</span>
+# One Billion Row Challenge<br>
 
 <div class="mt-10 text-xl muted">How slow is Python?</div>
-
-<div class="abs bottom-10 left-12 text-sm muted">One Billion Row Challenge in Python</div>
-
-<!--
-Welcome. This is not a language shoot-out. It is a tour of choices: data representation,
-parallelism, runtimes, and delegation to specialized engines.
--->
 
 ---
 layout: two-cols-header
 transition: fade
 ---
 
-<div class="eyebrow">0 · Introduction</div>
+<div class="eyebrow">Introduction</div>
 
-# The challenge: summarize a giant file
+# The challenge: summarize a 1 billion row CSV
 
 ::left::
 
 <div class="text-lg leading-8">
 
-For every station, calculate <span class="accent">minimum / average / maximum</span> temperature and print stations in order.
+For every station sort by city name and calculate:
+<ul>
+<li>minimum temperature</li>
+<li>average temperature</li>
+<li>maximum temperature</li>
+</ul>
 
-</div>
-
-<div class="takeaway mt-8">
-The input is deliberately simple: <code>city;temperature</code>, one record per line.
 </div>
 
 ::right::
@@ -57,14 +51,32 @@ London;15.1
 
 <div class="mt-6 text-lg">
 
-<span class="accent">1 million rows</span> · up to 10,000 UTF-8 cities · temperatures with one decimal place
+<ul>
+<li>1 billion rows</li>
+<li>up to 10,000 UTF-8 cities</li>
+<li>temperatures from -99.9 to 99.9</li>
+<li>; column separator</li>
+<li>14 gb text file</li>
+</ul>
 
 </div>
 
-<!--
-Set up the repeated task. The README frames this as a one-million-row variant of the
-One Billion Row Challenge; the data shape is intentionally narrow and predictable.
--->
+---
+
+<div class="eyebrow">0 · System Baseline </div>
+
+# Get the optimal baseline
+
+```bash
+# Step 1: Run direct I/O read test
+$ dd if=measurements.txt of=/dev/null bs=4M iflag=direct status=progress
+```
+<br>
+
+# Runtime
+
+<div class="text-lg leading-8">Run a simple CLI command to read a file directly to gather processing time.</div>
+<div class="text-lg leading-8">The goal generated is 1.6 seconds.</div>
 
 ---
 layout: two-cols-header
@@ -83,7 +95,7 @@ walkthrough:
 
 <div class="eyebrow">1 · Naive Python</div>
 
-# Start with the clearest possible baseline
+# Start with the simplest baseline
 
 ::left::
 
@@ -123,70 +135,46 @@ walkthrough:
 <StepExplain :steps="$frontmatter.walkthrough" />
 
 ---
-layout: two-cols-header
+layout: center
 transition: fade
 ---
 
 <div class="eyebrow">3 · Profiling naive Python</div>
 
-# A heatmap turns “slow” into a line-level question
+# Sampling profiler
 
-<span v-click class="profile-click-anchor" aria-hidden="true"></span>
-
-::left::
-
-<ProfileStep />
-
-::right::
-
-<div v-if="$clicks === 0" class="profile-copy">
-  <div class="profile-kicker">Naive Python · main process</div>
-  <h3>Every row pays interpreter costs</h3>
-  <p>The hottest lines are iteration, float conversion, dictionary membership, and <code>min</code>/<code>max</code>. That evidence motivates bytes, fixed-point integers, and fewer Python operations per record.</p>
-  <div class="takeaway mt-6">Heat means samples landed here—not that the line can be optimized in isolation.</div>
+<div class="w-full h-full flex items-center justify-center mt-4">
+  <ProfileStep />
 </div>
-
-<div v-else class="profile-copy">
-  <div class="profile-kicker">Optimised Python · worker process</div>
-  <h3>The hotspot moves into parsing</h3>
-  <p>After parallelization, a worker spends most samples in <code>process_line</code>, especially slicing and converting the temperature bytes. The next targets are fewer allocations, one dictionary lookup, and inlined comparisons.</p>
-  <div class="takeaway mt-6"><code>--subprocesses</code> matters: profiling only the parent mostly shows it waiting for workers.</div>
-</div>
-
-<!--
-Start with the naive profile. Click once to replace both the image and explanation with
-the optimized worker profile. Sampling a multiprocessing parent alone mostly records
-Condition.wait; follow child processes to profile process_chunk.
--->
 
 ---
 layout: two-cols-header
 walkthrough:
-  - title: 'Read the machine constraints once'
-    body: 'CPU count determines the number of chunks and workers; the operating-system page size will keep every mmap offset valid.'
-  - title: 'Move chunk ends to record boundaries'
-    body: 'Nominal byte ranges advance to the next newline, so no worker begins or ends halfway through a measurement.'
-  - title: 'Send independent chunks to processes'
-    body: 'A multiprocessing pool runs one process_chunk call per range, bypassing the GIL and returning worker-local dictionaries.'
-  - title: 'Map and scan one safe byte range'
-    body: 'Each worker page-aligns its mapping, seeks to the true start, and reads complete lines from only its assigned region.'
-  - title: 'Parse fixed-point temperatures as bytes'
-    body: 'The known numeric grammar becomes integer tenths through direct ASCII arithmetic, avoiding string decoding and float conversion.'
-  - title: 'Aggregate each byte record locally'
-    body: 'The semicolon locates the station and temperature. Byte keys and integer tenths keep conversion overhead out of the per-row dictionary update.'
-  - title: 'Respect mmap page alignment'
-    body: 'Chunk starts are rounded down to an operating-system page boundary; the worker then seeks forward to its exact start.'
-  - title: 'Reduce worker-local aggregates'
-    body: 'Counts and sums are added while minimum and maximum values are compared into one final dictionary.'
-  - title: 'Keep multiprocessing import-safe'
-    body: 'The main guard prevents spawned worker processes from executing the top-level orchestration again when they import this module.'
+  - title: 'Set up CPU-aware chunking'
+    body: 'It reads CPU count and page size up front, then computes an even base chunk size for the input file.'
+  - title: 'Split work on newline boundaries'
+    body: 'Each chunk end is moved to the next newline so no worker starts or ends in the middle of a record.'
+  - title: 'Fan out workers and format once'
+    body: 'A process pool runs process_chunk across chunks, then one final sorted print assembles the challenge output.'
+  - title: 'Map only the bytes a worker needs'
+    body: 'Each worker aligns its mmap offset to page boundaries, seeks to its true start, and streams lines in-place.'
+  - title: 'Parse temperatures as integer tenths'
+    body: 'to_int converts ASCII bytes directly, handling sign and one- or two-digit whole numbers without float parsing.'
+  - title: 'Update station stats in a tight loop'
+    body: 'For every line, it slices city and value, then mutates count, sum, min, and max in a compact list.'
+  - title: 'Keep mmap offsets OS-safe'
+    body: 'align_offset snaps chunk starts to page multiples, which avoids mmap offset errors on macOS and Linux.'
+  - title: 'Reduce worker dictionaries deterministically'
+    body: 'merge_results combines per-city aggregates from every process into one final dictionary.'
+  - title: 'Run the optimized path under CPython'
+    body: 'The main guard executes the full chunk-map-merge pipeline with no extra orchestration code in the hot path.'
     metric: '28.9 sec'
-    note: 'Parallel byte processing is much faster, but the implementation is now coupled to the exact input grammar.'
+    note: 'Most of the speedup comes from byte-level parsing, mmap reads, and parallel workers.'
 ---
 
 <div class="eyebrow">4 · Optimised Python</div>
 
-# Partition, parse, and reduce in one pass
+# Partition, parse, and merge in one pass
 
 ::left::
 
@@ -197,23 +185,36 @@ walkthrough:
 <StepExplain :steps="$frontmatter.walkthrough" />
 
 ---
+layout: center
+transition: fade
+---
+
+<div class="eyebrow">5 · Profiling optimised Python</div>
+
+# Sampling profiler
+
+<div class="w-full h-full flex items-center justify-center mt-4">
+  <img src="/4_optimised_python/profile.png" alt="Sampling heatmap for the optimized Python worker" class="w-full h-full object-contain" />
+</div>
+
+---
 layout: two-cols-header
 walkthrough:
   - title: 'Keep the fixed-point byte parser'
-    body: 'The numeric hot path is unchanged: temperatures remain integer tenths derived directly from ASCII bytes.'
-  - title: 'Use one dictionary lookup per record'
-    body: 'result.get(city) replaces a membership test followed by indexing. PyPy can specialize this stable branch pattern.'
-  - title: 'Run the same chunk loop under a JIT'
-    body: 'Repeated byte scanning and dictionary mutation give PyPy a hot loop it can compile while the program runs.'
-  - title: 'Make the merge path explicit'
-    body: 'try/except separates first-seen cities from updates; direct comparisons replace repeated min and max calls.'
-  - title: 'Keep orchestration and output intact'
-    body: 'The program still chunks, maps, reduces, sorts, and formats in the same overall shape.'
+    body: 'The numeric hot path is unchanged: temperatures stay as integer tenths derived directly from ASCII bytes.'
+  - title: 'Use one dictionary lookup path'
+    body: 'The update branch is compact and repeatable, which gives PyPy a predictable hot loop to optimize.'
+  - title: 'Run the same chunked worker flow under JIT'
+    body: 'The program still splits, maps, and processes byte ranges in parallel, but now the runtime specializes repeated operations.'
+  - title: 'Merge with explicit update logic'
+    body: 'The merge pass applies direct count, sum, min, and max updates over worker dictionaries.'
+  - title: 'Keep orchestration and output shape stable'
+    body: 'Main still executes one chunk-map-merge pipeline and prints the same sorted station format.'
     metric: '5 sec'
-    note: 'Roughly 6.6× faster than the CPython run by changing the runtime and tuning its hot branches.'
+    note: 'Roughly 6× faster than the CPython run by changing runtime and preserving the same algorithm.'
 ---
 
-<div class="eyebrow">5 · PyPy</div>
+<div class="eyebrow">6 · PyPy</div>
 
 # Let the JIT specialize the hot loops
 
@@ -228,16 +229,16 @@ walkthrough:
 ---
 layout: two-cols-header
 walkthrough:
-  - title: 'Move the execution engine out of Python'
-    body: 'Polars is imported as the native columnar engine; Python describes the work rather than performing every row operation.'
-  - title: 'Declare a lazy, typed CSV scan'
-    body: 'The separator, missing header, column names, and schema are specified up front so parsing can be planned efficiently.'
-  - title: 'Aggregate as one streaming pipeline'
-    body: 'Group-by, min, mean, max, collection, and sorting stay inside Polars. Streaming avoids materializing the full input first.'
-  - title: 'Format only the small result set'
-    body: 'Python iterates over aggregated station rows, not the original million input rows.'
+  - title: 'Define a lazy CSV scan'
+    body: 'scan_csv captures delimiter, missing header, and column names so Polars can own parsing and planning.'
+  - title: 'Push aggregation into the query plan'
+    body: 'group_by with min, mean, and max expresses the whole transformation before execution.'
+  - title: 'Execute and order in engine'
+    body: 'collect(engine="streaming") materializes the result, then sort("station") ensures deterministic output order.'
+  - title: 'Format only final aggregate rows'
+    body: 'Python loops over station-level rows to print the challenge output format in one pass.'
     metric: '10 sec'
-    note: 'A concise and maintainable solution, paid for with an external dependency.'
+    note: 'A concise, maintainable solution by leaning on a high-performance columnar runtime.'
 ---
 
 <div class="eyebrow">6 · Relax dependencies</div>
@@ -255,17 +256,18 @@ walkthrough:
 ---
 layout: two-cols-header
 walkthrough:
-  - title: 'Use Python as the host language'
-    body: 'The DuckDB module embeds an analytical database in the process; the path remains ordinary application configuration.'
-  - title: 'Describe the requested aggregates'
-    body: 'Minimum, average, and maximum are expressed directly in SQL and given names for result formatting.'
-  - title: 'Teach DuckDB the file shape'
-    body: 'read_csv receives the delimiter, header rule, and two column types, allowing the engine to parse the file itself.'
-  - title: 'Group, order, and execute inside the engine'
-    body: 'Parallel scanning, grouping, aggregation, and sorting stay in DuckDB; Python receives only the final rows.'
-  - title: 'Format the compact query result'
-    body: 'The remaining Python loop runs once per station rather than once per measurement.'
+  - title: 'Open DuckDB in process'
+    body: 'The Python script connects to an embedded DuckDB engine, so no separate database service is required.'
+  - title: 'Express all aggregates in SQL'
+    body: 'The query asks for min, avg, and max per station and aliases each metric for clean downstream formatting.'
+  - title: 'Read CSV with explicit schema hints'
+    body: 'read_csv sets delimiter, header behavior, and column types so DuckDB can parse the text efficiently.'
+  - title: 'Group and sort inside the engine'
+    body: 'Aggregation and ordering happen in DuckDB, which keeps heavy compute out of the Python loop.'
+  - title: 'Format only the returned rows'
+    body: 'Python iterates over already-aggregated station rows and prints the final challenge string.'
     metric: '10.5 sec'
+    note: 'The performance comes from delegating parsing and aggregation to a vectorized SQL engine.'
 ---
 
 <div class="eyebrow">7 · DuckDB</div>
@@ -374,7 +376,7 @@ layout: two-cols-header
 | Optimised Go | 2s | Maximum control | Most complex code |
 | DuckDB (Go) | 6.5s | SQL ergonomics with a Go host | Binding + dependency |
 
-<div v-click class="takeaway mt-8">
+<div class="takeaway mt-8">
 Start with the clearest solution. Profile the real bottleneck. Then choose the least-complex tool that meets the target.
 </div>
 
@@ -382,20 +384,6 @@ Start with the clearest solution. Profile the real bottleneck. Then choose the l
 The numbers here are the benchmark results reported by each section README. End on judgement:
 speed, clarity, adaptability, and operations are all legitimate constraints.
 -->
-
----
-layout: center
-transition: fade
----
-
-<div class="eyebrow">The durable lesson</div>
-
-# Performance is a series<br>of <span class="accent">representation choices.</span>
-
-<div class="mt-10 text-2xl muted">Text → bytes · floats → integer tenths · one loop → parallel chunks</div>
-<div class="mt-10 text-2xl muted">But hand-written logic is costly and long term a specialised engine may be optimal</div>
-
-<div class="mt-12 runtime">Measure first. Optimize second. Simplify whenever you can.</div>
 
 ---
 layout: two-cols-header
@@ -413,8 +401,6 @@ walkthrough:
     body: 'Optional sign handling and fixed ASCII arithmetic cover both one- and two-digit temperatures without allocating or parsing floats.'
   - title: 'Merge one populated entry'
     body: 'The reducer probes the final table, copies unseen stations, and combines count, sum, minimum, and maximum for matches.'
-  - title: 'Create newline-aligned worker ranges'
-    body: 'The mapped file is divided by the native parallelism level, with every intermediate boundary advanced to the next complete record.'
   - title: 'Schedule, join, reduce, and print'
     body: 'Native tasks receive private table regions. After the join, the tables merge and only the compact final result is formatted.'
     metric: 'under 2 sec'
@@ -427,7 +413,7 @@ walkthrough:
 
 ::left::
 
-<<< @/10_mojo_optimised/perf.mojo mojo {9-29|79-100|102-125|138-155|157-185|225-261|607-637|691-720}{maxHeight:'300px'}
+<<< @/10_mojo_optimised/perf.mojo mojo {1-29|32-54|79-100|102-125|138-155|157-185|225-261}{maxHeight:'300px'}
 
 ::right::
 
