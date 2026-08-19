@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brc"
+version = "0.1.0"
+description = "CPython C extension for OBR challenge aggregation"
+requires-python = ">=3.9"
+
+[tool.setuptools]
+py-modules = []
+
+[[tool.setuptools.ext-modules]]
+name = "brc"
+sources = ["brc.c"]
+extra-compile-args = ["-O3", "-pthread"]
+extra-link-args = ["-pthread"]
