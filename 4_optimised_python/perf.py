@@ -12,17 +12,16 @@ def read_file_in_chunks():
     base_chunk_size = file_size_bytes // CPU_COUNT
     chunks = []
 
-    with open(file_path, "r+b") as file:
-        with mmap.mmap(
-            file.fileno(), length=0, access=mmap.ACCESS_READ
-        ) as mmapped_file:
-            start_byte = 0
-            for _ in range(CPU_COUNT):
-                end_byte = min(start_byte + base_chunk_size, file_size_bytes)
-                end_byte = mmapped_file.find(b"\n", end_byte)
-                end_byte = end_byte + 1 if end_byte != -1 else file_size_bytes
-                chunks.append((file_path, start_byte, end_byte))
-                start_byte = end_byte
+    with open(file_path, "r+b") as file, mmap.mmap(
+        file.fileno(), length=0, access=mmap.ACCESS_READ
+    ) as mmapped_file:
+        start_byte = 0
+        for _ in range(CPU_COUNT):
+            end_byte = min(start_byte + base_chunk_size, file_size_bytes)
+            end_byte = mmapped_file.find(b"\n", end_byte)
+            end_byte = end_byte + 1 if end_byte != -1 else file_size_bytes
+            chunks.append((file_path, start_byte, end_byte))
+            start_byte = end_byte
 
     with multiprocessing.Pool(processes=CPU_COUNT) as p:
         results = p.starmap(process_chunk, chunks)

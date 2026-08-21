@@ -74,7 +74,6 @@ func processFile(path string) (map[string]Stats, error) {
 
 func main() {
 	path := "../data/measurements.txt"
-
 	data, _ := processFile(path)
 
 	stations := make([]string, 0, len(data))
@@ -83,7 +82,6 @@ func main() {
 	}
 
 	sort.Strings(stations)
-
 	fmt.Print("{")
 	for _, station := range stations {
 		stats := data[station]

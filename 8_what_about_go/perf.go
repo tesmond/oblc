@@ -15,21 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func writeDecimal(b *strings.Builder, v int) {
-	if v < 0 {
-		b.WriteByte('-')
-		v = -v
-	}
-	if v >= 100 {
-		b.WriteByte(byte('0' + v/100))
-		b.WriteByte(byte('0' + (v/10)%10))
-	} else {
-		b.WriteByte(byte('0' + v/10))
-	}
-	b.WriteByte('.')
-	b.WriteByte(byte('0' + v%10))
-}
-
 var cpuCount = runtime.NumCPU()
 
 type cityStats struct {
@@ -93,7 +78,6 @@ func processChunk(data []byte) *hashTable {
 		i := bytes.IndexByte(data, ';')
 		city := data[:i]
 		data = data[i+1:]
-
 		neg := data[0] == '-'
 		if neg {
 			data = data[1:]
@@ -110,13 +94,12 @@ func processChunk(data []byte) *hashTable {
 			temp = -temp
 		}
 		data = data[2:] // last digit + '\n'
-
 		t.upsert(city, temp)
 	}
 	return t
 }
 
-func reduce(tables []*hashTable) map[string]*cityStats {
+func merge(tables []*hashTable) map[string]*cityStats {
 	final := make(map[string]*cityStats, 512)
 	for _, t := range tables {
 		for i := range t.slots {
@@ -217,7 +200,7 @@ func readFileInChunks(filePath string) error {
 
 	wg.Wait()
 
-	final := reduce(results)
+	final := merge(results)
 	keys := make([]string, 0, len(final))
 	for city := range final {
 		keys = append(keys, city)
@@ -250,6 +233,21 @@ func readFileInChunks(filePath string) error {
 
 	fmt.Println(b.String())
 	return nil
+}
+
+func writeDecimal(b *strings.Builder, v int) {
+	if v < 0 {
+		b.WriteByte('-')
+		v = -v
+	}
+	if v >= 100 {
+		b.WriteByte(byte('0' + v/100))
+		b.WriteByte(byte('0' + (v/10)%10))
+	} else {
+		b.WriteByte(byte('0' + v/10))
+	}
+	b.WriteByte('.')
+	b.WriteByte(byte('0' + v%10))
 }
 
 func main() {

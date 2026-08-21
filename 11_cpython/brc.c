@@ -556,10 +556,6 @@ static int compute_results_file(const char *filename, char **output_ptr, size_t 
     Entry *final_table;
     if (posix_memalign((void **)&final_table, 64, FINAL_TABLE_SIZE * sizeof(Entry)) != 0) {
         perror("posix_memalign");
-        free(threads);
-        free(workers);
-        munmap((void *)data, size);
-        close(fd);
         return 1;
     }
 
@@ -576,11 +572,6 @@ static int compute_results_file(const char *filename, char **output_ptr, size_t 
     Entry **sorted = malloc(10000 * sizeof(*sorted));
     if (!sorted) {
         perror("malloc");
-        free(final_table);
-        free(threads);
-        free(workers);
-        munmap((void *)data, size);
-        close(fd);
         return 1;
     }
 
@@ -596,12 +587,6 @@ static int compute_results_file(const char *filename, char **output_ptr, size_t 
     char *output = malloc(output_capacity);
     if (!output) {
         perror("malloc");
-        free(sorted);
-        free(final_table);
-        free(threads);
-        free(workers);
-        munmap((void *)data, size);
-        close(fd);
         return 1;
     }
 

@@ -1,10 +1,9 @@
-import csv
-
+from csv import reader
 
 path = "../data/measurements.txt"
 
 with open(path) as csvfile:
-    reader = csv.reader(csvfile, delimiter=';')
+    reader = reader(csvfile, delimiter=";")
     result = {}
     for row in reader:
         city = row[0]
@@ -19,10 +18,12 @@ with open(path) as csvfile:
         else:
             result[city] = [1, temp_float, temp_float, temp_float]
 
-
 print("{")
-print(",".join(
-    f"{city}={item[2]:.1f}/{item[1]/item[0]:.1f}/{item[3]:.1f}"
-    for city, item in sorted(result.items())
-), end="")
+print(
+    ",".join(
+        f"{city}={item[2]:.1f}/{item[1]/item[0]:.1f}/{item[3]:.1f}"
+        for city, item in sorted(result.items())
+    ),
+    end="",
+)
 print("}")

@@ -4,7 +4,7 @@ title: One Billion Rows in Python
 titleTemplate: '%s — One Billion Row Challenge'
 info: |
   ## One Billion Rows  in Python
-  A practical performance journey through Python + some comeos
+  So how fast can Python go?
 author: Andrew
 colorSchema: dark
 highlighter: shiki
@@ -99,7 +99,7 @@ walkthrough:
 
 ::left::
 
-<<< @/1_naive_python/naive.py python {1,4,6-8|9-11|13-20|23-28}{maxHeight:'300px'}
+<<< @/1_naive_python/naive.py python {1,3,5-7|8-10|12-19|21-29}{maxHeight:'300px'}
 
 ::right::
 
@@ -109,7 +109,7 @@ walkthrough:
 layout: two-cols-header
 walkthrough:
   - title: 'Model each station with explicit fields'
-    body: 'A typed Stats struct records count, sum, minimum, and maximum. Sentinel infinities make the first comparison correct.'
+    body: 'A typed Stats struct records count, sum, minimum, and maximum. Default infinities allow comparison logic for first result.'
   - title: 'Stream the file one line at a time'
     body: 'bufio.Scanner keeps the baseline algorithm simple and bounds the amount of input held by the reader.'
   - title: 'Split and parse the record'
@@ -124,11 +124,11 @@ walkthrough:
 
 <div class="eyebrow">2 · Naive Go</div>
 
-# Keep the algorithm; change the runtime
+# Same algorithm, new runtime
 
 ::left::
 
-<<< @/2_naive_go/main.go go {13-27|29-45|47-53|55-65|75-100}{maxHeight:'300px'}
+<<< @/2_naive_go/main.go go {13-27|29-45|47-53|55-65|76-100}{maxHeight:'320px'}
 
 ::right::
 
@@ -150,12 +150,12 @@ transition: fade
 ---
 layout: two-cols-header
 walkthrough:
-  - title: 'Set up CPU-aware chunking'
-    body: 'It reads CPU count and page size up front, then computes an even base chunk size for the input file.'
+  - title: 'Set up CPU count based chunking'
+    body: 'It reads CPU count and page size up front, then computes a base chunk size for the input file.'
   - title: 'Split work on newline boundaries'
-    body: 'Each chunk end is moved to the next newline so no worker starts or ends in the middle of a record.'
-  - title: 'Fan out workers and format once'
-    body: 'A process pool runs process_chunk across chunks, then one final sorted print assembles the challenge output.'
+    body: 'Each chunk end is moved to the next newline so each worker processes complete records.'
+  - title: 'Multiprocess the file and format once'
+    body: 'A process pool runs process_chunk across chunks, then one sorted print assembles the challenge output.'
   - title: 'Map only the bytes a worker needs'
     body: 'Each worker aligns its mmap offset to page boundaries, seeks to its true start, and streams lines in-place.'
   - title: 'Parse temperatures as integer tenths'
@@ -178,7 +178,7 @@ walkthrough:
 
 ::left::
 
-<<< @/4_optimised_python/perf.py python {1-6|9-25|27-30|43-56|59-77|80-93|96-98|101-113|116-117}{maxHeight:'300px'}
+<<< @/4_optimised_python/perf.py python {1-6|9-25|27-30|44-57|60-78|81-94|97-99|102-114|117-118}{maxHeight:'320px'}
 
 ::right::
 
@@ -200,15 +200,15 @@ transition: fade
 ---
 layout: two-cols-header
 walkthrough:
-  - title: 'Keep the fixed-point byte parser'
-    body: 'The numeric hot path is unchanged: temperatures stay as integer tenths derived directly from ASCII bytes.'
+  - title: 'Keep the exact same process'
+    body: 'Read files in chunks'
   - title: 'Use one dictionary lookup path'
-    body: 'The update branch is compact and repeatable, which gives PyPy a predictable hot loop to optimize.'
+    body: 'The update branch is compact and repeatable, which gives PyPy a hot loop to optimise.'
   - title: 'Run the same chunked worker flow under JIT'
-    body: 'The program still splits, maps, and processes byte ranges in parallel, but now the runtime specializes repeated operations.'
+    body: 'The program still splits, maps, and processes byte ranges in parallel, but now the runtime specialises repeated operations.'
   - title: 'Merge with explicit update logic'
-    body: 'The merge pass applies direct count, sum, min, and max updates over worker dictionaries.'
-  - title: 'Keep orchestration and output shape stable'
+    body: 'The merge pass combines and recalculates the values from the dicts.'
+  - title: 'Print the sorted output'
     body: 'Main still executes one chunk-map-merge pipeline and prints the same sorted station format.'
     metric: '5 sec'
     note: 'Roughly 6× faster than the CPython run by changing runtime and preserving the same algorithm.'
@@ -216,11 +216,11 @@ walkthrough:
 
 <div class="eyebrow">6 · PyPy</div>
 
-# Let the JIT specialize the hot loops
+# Let the JIT optimise the hot loops
 
 ::left::
 
-<<< @/5_pypy_optimised_python/perf.py python {43-56|59-77|80-93|101-113|116-117}{maxHeight:'300px'}
+<<< @/5_pypy_optimised_python/perf.py python {9-25|61-79|82-95|103-115|118-119}{maxHeight:'300px'}
 
 ::right::
 
@@ -243,11 +243,11 @@ walkthrough:
 
 <div class="eyebrow">6 · Relax dependencies</div>
 
-# Let a columnar engine do the heavy lifting
+# Reach for Polars
 
 ::left::
 
-<<< @/6_relax_dependencies/main.py python {1,3-5|6-16|17-25|27-36}{maxHeight:'300px'}
+<<< @/6_relax_dependencies/main.py python {1,7-16|17-22|23-24|27-32}{maxHeight:'300px'}
 
 ::right::
 
@@ -260,7 +260,7 @@ walkthrough:
     body: 'The Python script connects to an embedded DuckDB engine, so no separate database service is required.'
   - title: 'Express all aggregates in SQL'
     body: 'The query asks for min, avg, and max per station and aliases each metric for clean downstream formatting.'
-  - title: 'Read CSV with explicit schema hints'
+  - title: 'Read CSV defining the schema'
     body: 'read_csv sets delimiter, header behavior, and column types so DuckDB can parse the text efficiently.'
   - title: 'Group and sort inside the engine'
     body: 'Aggregation and ordering happen in DuckDB, which keeps heavy compute out of the Python loop.'
@@ -272,11 +272,11 @@ walkthrough:
 
 <div class="eyebrow">7 · DuckDB</div>
 
-# Express the operation as a query
+# Generate the output through SQL
 
 ::left::
 
-<<< @/7_duckdb/main.py python {1,3-5|6-11|12-17|18-20|22-31}{maxHeight:'300px'}
+<<< @/7_duckdb/main.py python {1,6|7-11|12-17|18-20|22-27}{maxHeight:'300px'}
 
 ::right::
 
@@ -286,45 +286,35 @@ walkthrough:
 layout: two-cols-header
 class: go-walkthrough
 walkthrough:
-  - title: 'Format integer tenths without fmt'
-    body: 'The hot representation survives to output. Appending digits directly to one strings.Builder avoids converting every result through the general-purpose formatter.'
-  - title: 'Make the working set predictable'
+  - title: 'Define data types'
+    body: 'Fixing the data types allows for lower memory use than Python.'
+  - title: 'Custom hash table to more quickly upsert and retrieve data'
     body: 'Compact statistics, byte-range chunks, and fixed-size station slots establish the exact memory layout before any rows are processed.'
-  - title: 'Hash each station once'
-    body: 'FNV-1a consumes the station bytes and masks directly into the table. The power-of-two size turns bucket selection into one cheap operation.'
-  - title: 'Update a slot without a Go map'
-    body: 'Linear probing finds an empty or matching slot. New keys copy once; repeated keys mutate count, sum, minimum, and maximum in place.'
-  - title: 'Slice the station from mapped bytes'
-    body: 'The semicolon is located directly in the current byte slice. No line string or split result is allocated before the station lookup.'
-  - title: 'Parse fixed-point temperature in place'
-    body: 'Optional sign and one- or two-digit values become integer tenths through byte arithmetic, eliminating strconv and floating-point work.'
-  - title: 'Merge only populated worker slots'
-    body: 'Private hash tables keep the parse loop lock-free. Afterward, only occupied slots are converted to final station keys and combined.'
-  - title: 'Bound workers and open the file once'
-    body: 'The worker count follows available CPUs but never exceeds useful work. File validation and ordinary errors stay outside the hot path.'
-  - title: 'Share one read-only memory map'
-    body: 'Every goroutine reads the same mapped byte array. Sequential-access advice helps the operating system prepare the pages that will be consumed next.'
-  - title: 'Cut chunks only at newlines'
-    body: 'Each nominal boundary advances to the next record end, so workers receive disjoint slices and never repair partial measurements.'
-  - title: 'Give each goroutine private state'
-    body: 'Every goroutine parses one slice into its own table. With no shared writes, the hot loop needs neither a mutex nor atomic operations.'
-  - title: 'Join before the final reduction'
-    body: 'The WaitGroup establishes a clean phase boundary: parsing finishes first, then local tables merge and the small station key set is sorted.'
-  - title: 'Reuse one output builder'
-    body: 'Sorted stations append their names and minimum values to one buffer, avoiding a separate formatted string for every result field.'
+  - title: 'Parse the bytes, gather city name and temparature'
+    body: 'Faster text processing avoiding data type conversion.'
+  - title: 'Merge the generated hash tables'
+    body: 'Iterate through the hash tables and calculate the final city temperature values.'
+  - title: 'Start processing memory mapped file'
+    body: 'Start the file chunking process.'
+  - title: 'Generate chunk sizes'
+    body: 'Find the new line after a chunk to determine the chunk file size.'
+  - title: 'Process each chunk within a separate go routine.'
+    body: 'Create a worker loop and process all workers simultaneously.'
+  - title: 'Convert integers back to floats'
+    body: 'Ready the calculated values for display.'
   - title: 'Round and write the final values'
     body: 'The average is rounded with integer arithmetic, then average and maximum are appended before the completed result is printed once.'
     metric: '2 sec'
-    note: 'Maximum control delivers the fastest result, with the largest maintenance burden.'
+    note: 'Maximum control gives the fastest result, but the most maintenance burden.'
 ---
 
 <div class="eyebrow">8 · What about Go?</div>
 
-# One mapped file, private tables, one reduction
+# Batch processed, merged, sorted and output
 
 ::left::
 
-<<< @/8_what_about_go/perf.go go {18-32|34-58|60-67|68-89|91-97|98-118|120-145|147-173|175-182|184-198|200-212|213-218|220-231|232-245}{maxHeight:'300px'}
+<<< @/8_what_about_go/perf.go go {20-42|45-73|75-100|102-122|129-151|172-186|190-199|238-251|253-264}{maxHeight:'320px'}
 
 ::right::
 
@@ -334,24 +324,24 @@ walkthrough:
 layout: two-cols-header
 walkthrough:
   - title: 'Load the database driver through database/sql'
-    body: 'The blank import registers the DuckDB driver; the rest of the program uses Go’s standard database interface.'
-  - title: 'Open and own the in-process database'
+    body: 'Register the DuckDB driver; the rest of the program uses Go’s standard database interface.'
+  - title: 'Open the in-process database'
     body: 'The connection has normal Go lifecycle management and closes when main returns.'
-  - title: 'Run the same analytical query'
-    body: 'DuckDB still owns CSV parsing, grouping, three aggregates, and ordering. The SQL closely matches the Python version.'
-  - title: 'Scan and format the result rows'
-    body: 'Go crosses the native boundary for each aggregated station row, checks iterator errors, and joins the formatted parts.'
+  - title: 'Run the same SQL query'
+    body: 'DuckDB still performs CSV parsing, grouping, aggregation, and ordering.'
+  - title: 'Print the result rows'
+    body: 'Iterate through results row and format the output.'
     metric: '6.5 sec'
-    note: 'The Go binding is faster here while preserving the concise SQL solution.'
+    note: 'The Go binding is faster than the same Python solution.'
 ---
 
 <div class="eyebrow">9 · Go + DuckDB</div>
 
-# Keep the query; change the binding
+# Same query different language
 
 ::left::
 
-<<< @/9_what_about_go_duckdb/main.go go {1-10|12-17|19-37|39-53}{maxHeight:'300px'}
+<<< @/9_what_about_go_duckdb/main.go go {1-10|12-17|19-37|39-53}{maxHeight:'320px'}
 
 ::right::
 
@@ -363,27 +353,17 @@ layout: two-cols-header
 
 <div class="eyebrow">Closing comparison</div>
 
-# There is no single “best” implementation
+| Approach | Runtime | Notes |
+| --- | ---: | --- | 
+| Naive Python | 6m 7s | Quickest to code |
+| Naive Go | 1m 19s | Compiled and straight forward |
+| Optimised Python (CPython) | 28.9s | Increased code complexity |
+| Optimised Python (PyPy) | 5s | Free performance boost with new runtime |
+| Polars | 10s | Straightforward, fast and easy to maintain |
+| DuckDB (Python) | 10.5s | Great if you know SQL, highly maintainable |
+| Optimised Go | 2s | Fastest option |
+| DuckDB (Go) | 6.5s | SQL ergonomics but with faster processing | 
 
-| Approach | Runtime | Benefits | Costs |
-| --- | ---: | --- | --- |
-| Naive Python | 6m 7s | Maximum clarity | Per-row interpreter cost |
-| Naive Go | 1m 19s | Typed, low-overhead loop | More ceremony |
-| Optimised Python (CPython) | 28.9s | Parallel byte processing | Format-specific tuning |
-| Optimised Python (PyPy) | 5s | Same source, JIT-compiled hot loops | Runtime choice |
-| Polars | 10s | Concise columnar pipeline | External dependency |
-| DuckDB (Python) | 10.5s | Expressive SQL, automatic parallelism | Engine boundary |
-| Optimised Go | 2s | Maximum control | Most complex code |
-| DuckDB (Go) | 6.5s | SQL ergonomics with a Go host | Binding + dependency |
-
-<div class="takeaway mt-8">
-Start with the clearest solution. Profile the real bottleneck. Then choose the least-complex tool that meets the target.
-</div>
-
-<!--
-The numbers here are the benchmark results reported by each section README. End on judgement:
-speed, clarity, adaptability, and operations are all legitimate constraints.
--->
 
 ---
 layout: two-cols-header
@@ -413,8 +393,31 @@ walkthrough:
 
 ::left::
 
-<<< @/10_mojo_optimised/perf.mojo mojo {1-29|32-54|79-100|102-125|138-155|157-185|225-261}{maxHeight:'300px'}
+<<< @/10_mojo_optimised/perf.mojo mojo {1-29|32-50|79-100|138-156|162-183|196-204|223-260}{maxHeight:'320px'}
 
 ::right::
 
 <StepExplain :steps="$frontmatter.walkthrough" />
+
+
+---
+layout: two-cols-header
+transition: fade
+walkthrough:
+  - title: 'Cheat'
+    body: 'For the fastest solution just bridge from Python into C.'
+    metric: '1.9 sec'
+---
+
+<div class="eyebrow">11 · But Wait There's More</div>
+
+# Python the standard way
+
+::left::
+
+<<< @/11_cpython/main.py python {1-13}{maxHeight:'280px'}
+
+::right::
+
+<StepExplain :steps="$frontmatter.walkthrough" />
+
